@@ -8,6 +8,12 @@
 // The top left point of the rectangle is where the sprite starts based off of its template
 void Entity::setBoundingBox() {
 	switch (type) {
+	case EntityType::MARIO_SMALL_L: bbox = cv::Rect(-3, -1, 13, 16); break;
+	case EntityType::MARIO_SMALL_R: bbox = cv::Rect(-3, -1, 13, 16); break;
+	case EntityType::MARIO_BIG_L: bbox = cv::Rect(-4, -3, 16, 32); break;
+	case EntityType::MARIO_BIG_R: bbox = cv::Rect(-3, -3, 16, 32); break;
+	case EntityType::MARIO_FIRE_L: bbox = cv::Rect(-4, -3, 16, 32); break;
+	case EntityType::MARIO_FIRE_R: bbox = cv::Rect(-3, -3, 16, 32); break;
 	case EntityType::GOOMBA: bbox = cv::Rect(-3, -5, 16, 16); break;
 	case EntityType::KOOPA_L: bbox = cv::Rect(-5, -13, 16, 24); break;
 	case EntityType::KOOPA_R: bbox = cv::Rect(-2, -13, 16, 24); break;
@@ -16,7 +22,7 @@ void Entity::setBoundingBox() {
 	case EntityType::SHELL: bbox = cv::Rect(-4, -3, 16, 14); break;
 	/*case EntityType::SHELL_RED: bbox = cv::Rect(-4, -3, 16, 14); break;
 	case EntityType::PIRANHA: bbox = cv::Rect(); break;
-	case EntityType::BRICK: bbox = cv::Rect(); break;
+	case EntityType::BRICK: bbox = cv::Rect(0, 0, 16, 16); break;
 	case EntityType::QUESTION: bbox = cv::Rect(); break;
 	case EntityType::ROCK: bbox = cv::Rect(); break;
 	case EntityType::FLAGPOLE: bbox = cv::Rect(); break;
@@ -30,6 +36,12 @@ void Entity::setBoundingBox() {
 int Entity::getDetThresh(EntityType type) {
 	int detThresh = 0;
 	switch (type) {
+	case EntityType::MARIO_SMALL_L: detThresh = 150000; break;
+	case EntityType::MARIO_SMALL_R: detThresh = 150000; break;
+	case EntityType::MARIO_BIG_L: detThresh = 150000; break;
+	case EntityType::MARIO_BIG_R: detThresh = 150000; break;
+	case EntityType::MARIO_FIRE_L: detThresh = 150000; break;
+	case EntityType::MARIO_FIRE_R: detThresh = 150000; break;
 	case EntityType::GOOMBA: detThresh = 780000; break;
 	case EntityType::KOOPA_L: detThresh = 150000; break;
 	case EntityType::KOOPA_R: detThresh = 150000; break;
@@ -60,15 +72,21 @@ void Entity::fillSpriteTable(WorldType world) {
 	}
 
 	// Fill spriteTable
+	spriteTable[EntityType::MARIO_SMALL_L] = cv::imread("sprites/mario/mario-small-left.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::MARIO_SMALL_R] = cv::imread("sprites/mario/mario-small-right.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::MARIO_BIG_L] = cv::imread("sprites/mario/mario-big-left.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::MARIO_BIG_R] = cv::imread("sprites/mario/mario-big-right.png", CV_LOAD_IMAGE_COLOR);;
+	spriteTable[EntityType::MARIO_FIRE_L] = cv::imread("sprites/mario/mario-fire-left.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::MARIO_FIRE_R] = cv::imread("sprites/mario/mario-fire-right.png", CV_LOAD_IMAGE_COLOR);
 	Entity::spriteTable[EntityType::GOOMBA] = cv::imread("sprites/enemies/" + worldStr + "/goomba-template.png", CV_LOAD_IMAGE_COLOR);
 	Entity::spriteTable[EntityType::KOOPA_L] = cv::imread("sprites/enemies/" + worldStr + "/koopa-l-template.png", CV_LOAD_IMAGE_COLOR);
 	Entity::spriteTable[EntityType::KOOPA_R] = cv::imread("sprites/enemies/" + worldStr + "/koopa-r-template.png", CV_LOAD_IMAGE_COLOR);
 	//Entity::spriteTable[EntityType::KOOPA_RED_L] = cv::imread("sprites/enemies/shared/koopa-l-template.png", CV_LOAD_IMAGE_COLOR);
 	//Entity::spriteTable[EntityType::KOOPA_RED_R] = cv::imread("sprites/enemies/shared/koopa-r-template.png", CV_LOAD_IMAGE_COLOR);
 	Entity::spriteTable[EntityType::SHELL] = cv::imread("sprites/enemies/" + worldStr + "/shell-template.png", CV_LOAD_IMAGE_COLOR);
-	//Entity::spriteTable[EntityType::SHELL_RED] = cv::imread("sprites/enemies/shared/shell-template.png", CV_LOAD_IMAGE_COLOR);
-	/*spriteTable[EntityType::PIRANHA] = cv::imread("sprites/enemies/" + worldStr + "/goomba-template.png", CV_LOAD_IMAGE_COLOR);
-	spriteTable[EntityType::BRICK] = cv::imread("sprites/misc/" + worldStr + "/brick-template.png", CV_LOAD_IMAGE_COLOR);
+	/*Entity::spriteTable[EntityType::SHELL_RED] = cv::imread("sprites/enemies/shared/shell-template.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::PIRANHA] = cv::imread("sprites/enemies/" + worldStr + "/goomba-template.png", CV_LOAD_IMAGE_COLOR);
+	spriteTable[EntityType::BRICK] = cv::imread("sprites/misc/" + worldStr + "/brick1.png", CV_LOAD_IMAGE_COLOR);
 	spriteTable[EntityType::QUESTION]
 	spriteTable[EntityType::ROCK]
 	spriteTable[EntityType::FLAGPOLE]
@@ -82,14 +100,16 @@ Entity::Entity(cv::Point loc, EntityType type, int timeMS) {
 	this->loc = loc;
 	this->type = type;
 	msLastSeen = timeMS;
+	isInFrame = true;
 
 	setBoundingBox();
 }
 
-Entity::Entity() {
-	this->loc = cv::Point(0,0);
-	this->type = SIZE_ENTITY_TYPE;
-	isInFrame = true;
+Entity::Entity(EntityType type) {
+	this->loc = cv::Point(0, 0);
+	this->type = type;
+	msLastSeen = 0;
+	isInFrame = false;
 
 	setBoundingBox();
 }
@@ -152,17 +172,31 @@ bool Entity::updateState(cv::Mat image, int timeMS) {
 	double minVal;
 	double maxVal;
 	int method = cv::TM_SQDIFF;
-	EntityType tmpType = type;
 
 	const int MARGIN = 5;
-	int x = std::max(0, bbox.x + loc.x - MARGIN);
-	int y = std::max(0, bbox.y + loc.y - MARGIN);
-	int width = std::min(bbox.width + MARGIN * 2, image.cols - x);
-	int height = std::min(bbox.height + MARGIN * 2, image.rows - y);
+	int x, y, width, height;
+	if (!isInFrame && (
+		type == EntityType::MARIO_SMALL_L ||
+		type == EntityType::MARIO_SMALL_R ||
+		type == EntityType::MARIO_BIG_L   ||
+		type == EntityType::MARIO_BIG_R   ||
+		type == EntityType::MARIO_FIRE_L  ||
+		type == EntityType::MARIO_FIRE_R)) {
+		x = 0;
+		y = 0;
+		width = image.cols;
+		height = image.rows;
+	}
+	else {
+		x = std::max(0, bbox.x + loc.x - MARGIN);
+		y = std::max(0, bbox.y + loc.y - MARGIN);
+		width = std::min(bbox.width + MARGIN * 2, image.cols - x);
+		height = std::min(bbox.height + MARGIN * 2, image.rows - y);
+	}
 	cv::Mat roi = image(cv::Rect(x, y, width, height));
-	// imshow("ROI", roi);
+	std::vector<EntityType> possStates = nextStates();
 
-	while (true) {
+	for (EntityType tmpType : possStates) {
 		// Create the result matrix
 		int result_cols = roi.cols - spriteTable[tmpType].cols + 1;
 		int result_rows = roi.rows - spriteTable[tmpType].rows + 1;
@@ -175,7 +209,18 @@ bool Entity::updateState(cv::Mat image, int timeMS) {
 		cv::minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
 
 		if (minVal < getDetThresh(tmpType)) { // We found it
-			loc = cv::Point(minLoc.x + loc.x + bbox.x - MARGIN, minLoc.y + loc.y + bbox.y - MARGIN);
+			if (!isInFrame && (
+				type == EntityType::MARIO_SMALL_L ||
+				type == EntityType::MARIO_SMALL_R ||
+				type == EntityType::MARIO_BIG_L ||
+				type == EntityType::MARIO_BIG_R ||
+				type == EntityType::MARIO_FIRE_L ||
+				type == EntityType::MARIO_FIRE_R)) {
+				loc = minLoc;
+			}
+			else {
+				loc = cv::Point(minLoc.x + loc.x + bbox.x - MARGIN, minLoc.y + loc.y + bbox.y - MARGIN);
+			}
 			type = tmpType;
 
 			setBoundingBox();
@@ -184,28 +229,12 @@ bool Entity::updateState(cv::Mat image, int timeMS) {
 
 			return true;
 		}
-
-		// Essentially tmpType++
-		if (tmpType == type) {
-			// Reset to first type if tmpType is what we thought the Entity was
-			tmpType = EntityType::GOOMBA;
-		}
-		else {
-			tmpType = static_cast<EntityType>(tmpType + 1);
-		}
-		EntityType t;
-		for (t = tmpType; t != EntityType::SIZE_ENTITY_TYPE; t = static_cast<EntityType>(t + 1)) {
-			if (transTable[type][t] && t != type) {
-				tmpType = t;
-				break;
-			}
-		}
-		if (t == EntityType::SIZE_ENTITY_TYPE) {
-			isInFrame = false;
-			return false; // We lost the Entity
-		}
 	}
+
+	isInFrame = false;
+	return false;
 }
+
 
 bool Entity::inFrame() {
 	return isInFrame;
@@ -278,10 +307,57 @@ int Entity::timeLastSeen() {
 
 cv::Mat Entity::spriteTable[EntityType::SIZE_ENTITY_TYPE];
 
-const bool Entity::transTable[EntityType::SIZE_ENTITY_TYPE][EntityType::SIZE_ENTITY_TYPE] = {
-		       // GOOMBA, KOOPA_L, KOOPA_R, SHELL
-	/*GOOMBA*/  { true,   false,   false,   false },
-	/*KOOPA_L*/ { false,  true,    true,    true },
-	/*KOOPA_R*/ { false,  true,    true,    true },
-	/*SHELL*/   { false,  false,   false,    true },
-};
+std::vector<EntityType> Entity::nextStates() {
+	std::vector<EntityType> ret;
+	switch (type) {
+	case EntityType::MARIO_SMALL_L:
+		ret.push_back(EntityType::MARIO_SMALL_L);
+		ret.push_back(EntityType::MARIO_SMALL_R);
+		ret.push_back(EntityType::MARIO_BIG_L);
+		break;
+	case EntityType::MARIO_SMALL_R:
+		ret.push_back(EntityType::MARIO_SMALL_R);
+		ret.push_back(EntityType::MARIO_SMALL_L);
+		ret.push_back(EntityType::MARIO_BIG_R);
+		break;
+	case EntityType::MARIO_BIG_L:
+		ret.push_back(EntityType::MARIO_BIG_L);
+		ret.push_back(EntityType::MARIO_BIG_R);
+		ret.push_back(EntityType::MARIO_SMALL_L);
+		ret.push_back(EntityType::MARIO_FIRE_L);
+		break;
+	case EntityType::MARIO_BIG_R:
+		ret.push_back(EntityType::MARIO_BIG_R);
+		ret.push_back(EntityType::MARIO_BIG_L);
+		ret.push_back(EntityType::MARIO_SMALL_R);
+		ret.push_back(EntityType::MARIO_FIRE_R);
+		break;
+	case EntityType::MARIO_FIRE_L:
+		ret.push_back(EntityType::MARIO_FIRE_L);
+		ret.push_back(EntityType::MARIO_FIRE_R);
+		ret.push_back(EntityType::MARIO_SMALL_L);
+		break;
+	case EntityType::MARIO_FIRE_R:
+		ret.push_back(EntityType::MARIO_FIRE_R);
+		ret.push_back(EntityType::MARIO_FIRE_L);
+		ret.push_back(EntityType::MARIO_SMALL_R);
+		break;
+	case EntityType::GOOMBA:
+		ret.push_back(EntityType::GOOMBA);
+		break;
+	case EntityType::KOOPA_L:
+		ret.push_back(EntityType::KOOPA_L);
+		ret.push_back(EntityType::KOOPA_R);
+		ret.push_back(EntityType::SHELL);
+		break;
+	case EntityType::KOOPA_R:
+		ret.push_back(EntityType::KOOPA_R);
+		ret.push_back(EntityType::KOOPA_L);
+		ret.push_back(EntityType::SHELL);
+		break;
+	case EntityType::SHELL:
+		ret.push_back(EntityType::SHELL);
+		break;
+	}
+	return ret;
+}

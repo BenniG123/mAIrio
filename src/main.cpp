@@ -10,7 +10,6 @@
 #include <time.h>
 
 #include "Entity.h"
-#include "Mario.h"
 #include "ScreenCapture.h"
 
 std::vector<cv::Mat> getSpriteList(WorldType world);
@@ -39,7 +38,7 @@ int main(int argc, char** argv) {
 	cv::Mat recon;
 	cv::Mat output;
 	cv::Rect marioBoundingRect;
-	Mario mario;
+	Entity mario(EntityType::MARIO_SMALL_R);
 	bool foundMario = false;
 	int marioState = 0;
 	DWORD start, end;
@@ -51,7 +50,7 @@ int main(int argc, char** argv) {
 	int marioThresholds[] = {150000, 150000, 150000, 150000, 150000, 150000};
 	// std::vector<cv::Mat> spriteList; // = getSpriteList(WorldType::OVERWORLD);
 	Entity::fillSpriteTable(WorldType::OVERWORLD);
-	mario.fillSpriteTable();
+	//mario.fillSpriteTable();
 
 	cv::namedWindow("Image", cv::WINDOW_AUTOSIZE);
 
@@ -99,14 +98,10 @@ int main(int argc, char** argv) {
 		// Remove alpha component for template matching - I think this is why it works?
 		cv::cvtColor(input, input, CV_RGBA2RGB);
 
-		if (!mario.inFrame()) {
-			mario.watch(input, start);
-		}
-		else {
-			mario.updateState(input, start);
-		}
-
-		cv::rectangle(input, mario.getBBox(), cv::Scalar(127,127,0), 2);
+		mario.updateState(input, start);
+		cv::rectangle(input, mario.getBBox(), cv::Scalar::all(255), 2);
+		
+		//cv::rectangle(input, mario.getBBox(), cv::Scalar(127,127,0), 2);
 
 		for (int i = 0; i < known.size(); i++) {
 			known[i].updateState(input, start);
